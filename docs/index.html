@@ -52,6 +52,7 @@ table{border-collapse:collapse;width:100%;font-size:13px}th,td{text-align:left;p
     <label>Status<select id="stat"><option value="actief">Nu te koop / op veiling</option><option value="alle">Alles (incl. verkocht/offline)</option><option value="weg">Alleen verkocht/offline</option></select></label>
     <label>Zoek<input type="search" id="q" placeholder="model, plaats, tekst…"></label>
     <label>Min. beoordeling<select id="minster"><option value="0">alle</option><option value="1">★ 1+</option><option value="2">★ 2+</option><option value="3">★ 3+</option><option value="4">★ 4+</option><option value="5">★ 5</option></select></label>
+    <label>Kieltype<select id="kiel"><option value="">alle</option><option value="vinkiel">vinkiel</option><option value="kimkiel">kimkiel / bilgekiel</option><option value="lange kiel">lange kiel</option><option value="zwaard">zwaard / hefkiel</option><option value="onbekend">onbekend</option></select></label>
     <label>Sorteer<select id="sort"><option value="prijs">Prijs ↑</option><option value="prijsd">Prijs ↓</option><option value="nieuw">Nieuwst</option><option value="jaar">Bouwjaar nieuw → oud</option><option value="ft">Lengte (voet)</option><option value="ster">Beoordeling</option></select></label>
     <label class="v"><input type="checkbox" id="onbek"> toon boten zonder prijs</label>
   </div>
@@ -119,6 +120,7 @@ function gefilterd(){
     if(mo&&b.type!==mo) return false;
     if(st==="actief"&&!online) return false; if(st==="weg"&&online) return false;
     if(ms&&ster(b)<ms) return false;
+    const kl=$("kiel").value; if(kl){const k=(b.kiel||"").toLowerCase(); if(kl==="onbekend"?k:!k.includes(kl)) return false;}
     if(!$("onbek").checked&&b.prijs_eur==null&&!(b.biedingen||[]).length&&tab!=="veil") return false;
     if(q&&!(b.titel+" "+b.type+" "+b.plaats+" "+b.tekst+" "+b.land).toLowerCase().includes(q)) return false;
     return true;});
@@ -162,6 +164,7 @@ function historieHTML(b){
   const ph=b.prijshistorie||[],bd=b.biedingen||[],ev=b.gebeurtenissen||[],v=b.veiling;
   let h=`<div><h4>Looptijd</h4><table><tr><td>Eerst gezien</td><td>${dtt(b.eerst_gezien)}</td></tr><tr><td>Status</td><td>${esc(b.status)}${b.offline_sinds?" — "+dtt(b.offline_sinds):""}</td></tr>
     <tr><td>Dagen ${b.online===false?"te koop geweest":"al te koop"}</td><td>${dagen(b.eerst_gezien,b.offline_sinds||new Date())}</td></tr><tr><td>Website</td><td>${[b,...b._andere].map(x=>`<a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.bron)}</a>`).join(" · ")}</td></tr>
+    <tr><td>Kieltype</td><td>${esc(b.kiel||"onbekend")}</td></tr><tr><td>Masthoogte boven water</td><td>${b.mast_hoogte_m?b.mast_hoogte_m+" m ("+esc(b.mast_hoogte_bron)+")":"onbekend"}</td></tr><tr><td>Diepgang</td><td>${b.diepgang_m?b.diepgang_m+" m":"onbekend"}</td></tr>
     <tr><td>Lengte</td><td>${b.lengte_ft??"?"} ft <span class="meta">(${esc(b.lengte_bron||"onbekend")}${b.lengte_m?"; gemeten "+b.lengte_m+" m":""})</span></td></tr></table>
     <ul>${ev.map(e=>`<li>${esc(e.t)} — ${dtt(e.d)}${e.eindbod?" (eindbod "+euro(e.eindbod)+")":""}</li>`).join("")}</ul></div>`;
   h+=`<div><h4>Prijzen</h4>${ph.length?"<table>"+[...ph].reverse().map((p,i,a)=>{const v0=a[i+1];const dl=v0?p.p-v0.p:0;return `<tr><td>${dtt(p.d)}</td><td>${euro(p.p)}${p.valuta&&p.valuta!=="EUR"?` <span class="meta">(${Math.round(p.orig)} ${p.valuta})</span>`:""} ${dl?`<b style="color:var(--${dl<0?"goed":"slecht"})">${dl<0?"▼":"▲"} ${euro(Math.abs(dl))}</b>`:""}</td></tr>`}).join("")+"</table>":'<p class="meta">Geen prijs bekend.</p>'}</div>`;
@@ -175,7 +178,8 @@ function historieHTML(b){
 function kaart(b){
   const p=prijs(b),ph=b.prijshistorie||[],bd=b.biedingen||[],v=b.veiling;
   const badges=[`<span class="b ${b.online===false?"slecht":"goed"}">${esc(stat(b))}</span>`,b.land?`<span class="b">${esc(b.land)}${b.plaats?" · "+esc(b.plaats):""}</span>`:"",
-    b.bouwjaar?`<span class="b">${b.bouwjaar}</span>`:"",b.lengte_ft?`<span class="b">${b.lengte_ft} ft</span>`:"",`<span class="b">${esc(b.type)}</span>`];
+    b.bouwjaar?`<span class="b">${b.bouwjaar}</span>`:"",b.lengte_ft?`<span class="b">${b.lengte_ft} ft</span>`:"",`<span class="b">${esc(b.type)}</span>`,
+    b.kiel?`<span class="b">kiel: ${esc(b.kiel)}</span>`:"",b.mast_hoogte_m?`<span class="b" title="${esc(b.mast_hoogte_bron)}">mast ${b.mast_hoogte_m} m</span>`:"",b.diepgang_m?`<span class="b">diepgang ${b.diepgang_m} m</span>`:""];
   if((Date.now()-new Date(b.eerst_gezien))/864e5<=2&&b.online!==false)badges.unshift('<span class="b nw">nieuw</span>');
   if(ph.length>1){const d=ph[ph.length-1].p-ph[0].p;badges.push(`<span class="b ${d<0?"goed":"let"}">${d<0?"▼":"▲"} ${euro(Math.abs(d))} (was ${euro(ph[0].p)})</span>`)}
   if(b._andere.length)badges.push(`<span class="b">ook op ${b._andere.map(x=>esc(x.bron)).join(", ")}</span>`);
@@ -234,7 +238,7 @@ function importeer(tekst,naam){
 }
 const u64=s=>btoa(String.fromCharCode(...new TextEncoder().encode(s))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
 const u64d=s=>new TextDecoder().decode(Uint8Array.from(atob(s.replace(/-/g,"+").replace(/_/g,"/")),c=>c.charCodeAt(0)));
-const INST=["land","model","stat","q","minster","sort"];
+const INST=["land","model","stat","q","minster","sort","kiel"];
 function instellingen(){const o={};INST.forEach(i=>o[i]=$(i).value);o.onbek=$("onbek").checked;o.tab=tab;return o}
 function bewaarInst(){try{localStorage.setItem("inst",JSON.stringify(instellingen()))}catch(e){}}
 function laadInst(o){if(!o)return;INST.forEach(i=>{if(o[i]!==undefined)$(i).value=o[i]});if(o.onbek!==undefined)$("onbek").checked=o.onbek;if(o.tab)zetTab(o.tab,false)}

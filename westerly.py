@@ -98,14 +98,78 @@ def bouwjaar(*teksten):
     return None
 
 
+
+KIEL_PATRONEN = [
+    ("lange kiel", r"lange kiel|long keel|full keel|volle kiel|langkiel"),
+    ("vinkiel", r"vin ?kiel|fin ?keel|\bfin\b"),
+    ("kimkiel / bilgekiel", r"kim ?kiel|bilge ?keel|bilgekiel|bi-?keel|bi-?kiel|twin ?keel|tweelingkiel|dubbele kiel|twinkeel"),
+    ("zwaard / hefkiel", r"zwaard|centre ?board|center ?board|hefkiel|swing keel|lifting keel|dagger ?board|kielzwaard"),
+    ("wingkiel", r"wing ?keel|wingkiel"),
+    ("diepe kiel", r"diepe kiel|deep keel"),
+]
+LABELS = r"(?:Kieltype|Diepgang|Ballast|Mastmateriaal|Rompmateriaal|Doorvaarthoogte|Max\. stahoogte|Gewicht|Navigatie|Bouwjaar|Brandstof|Motor|Lengte|Breedte)"
+
+
+def spec(t, label):
+    m = re.search(label + r":\s*(.+?)(?=\s+[A-Z][\w.\- ]{2,25}:|\s+Navigatie|$)", t or "")
+    return m.group(1).strip() if m else ""
+
+
+def meter(s):
+    m = re.search(r"([\d]+(?:[.,]\d+)?)\s*m(?:eter)?\b", s or "")
+    if m:
+        return float(m.group(1).replace(",", "."))
+    m = re.search(r"([\d]+(?:[.,]\d+)?)\s*(?:voet|ft|feet)", s or "", re.I)
+    return round(float(m.group(1).replace(",", ".")) / M2FT, 1) if m else None
+
+
+def extraheer(r, t):
+    """Kieltype, mast-/doorvaarthoogte boven water en diepgang uit vrije tekst of specificatielijst."""
+    if not t:
+        return
+    kt = spec(t, "Kieltype")
+    zoek = kt or ""
+    soorten = []
+    for naam, pat in KIEL_PATRONEN:
+        if re.search(pat, zoek, re.I):
+            soorten.append(naam)
+    if not soorten and not kt:
+        for naam, pat in KIEL_PATRONEN:
+            if naam == "vinkiel":       # 'fin' alleen in expliciete combinatie ('fin keel'/'vinkiel') in lopende tekst
+                pat = r"vin ?kiel|fin ?keel"
+            if re.search(pat, t, re.I):
+                soorten.append(naam)
+    if soorten and not r.get("kiel"):
+        r["kiel"], r["kiel_bron"] = " / ".join(dict.fromkeys(soorten)), "advertentie"
+    elif kt and not r.get("kiel"):
+        r["kiel"], r["kiel_bron"] = kt[:40], "advertentie"
+    if not r.get("mast_hoogte_m"):
+        dv = spec(t, "Doorvaarthoogte")
+        h = meter(dv) if dv else None
+        bron = "doorvaarthoogte (boven water)"
+        if h is None:
+            m = re.search(r"(?:mast ?hoogte|mast height|air ?draft|height above (?:the )?water ?(?:line)?|hoogte boven (?:het )?water(?:lijn)?|totale hoogte)[^\d]{0,25}([\d]+(?:[.,]\d+)?)\s*(m\b|meter|voet|ft|feet)", t, re.I)
+            if m:
+                v = float(m.group(1).replace(",", "."))
+                h = round(v / M2FT, 1) if m.group(2).lower() in ("voet", "ft", "feet") else v
+                bron = "advertentietekst"
+        if h and 4 < h < 40:
+            r["mast_hoogte_m"], r["mast_hoogte_bron"] = h, bron
+    if not r.get("diepgang_m"):
+        dg = meter(spec(t, "Diepgang"))
+        if dg and 0.3 < dg < 4:
+            r["diepgang_m"] = dg
+
+
 def maak(bron, extid, url, titel, tekst="", prijs=None, valuta="EUR", jaar=None, lengte_m=None, land="", plaats="", foto="", **extra):
     model, mft = herken_model(titel + " " + (tekst or "")[:300])
     ft, ftbron = lengte_ft(titel, tekst, lengte_m, mft)
     r = {"id": f"{bron}-{extid}", "bron": bron, "url": url, "titel": re.sub(r"\s+", " ", titel).strip(), "type": model,
          "lengte_ft": ft, "lengte_bron": ftbron, "lengte_m": round(lengte_m, 2) if lengte_m and 5 < lengte_m < 25 else None, "bouwjaar": jaar or bouwjaar(titel, tekst), "land": land, "plaats": plaats,
          "valuta": valuta, "prijs": prijs, "foto": foto, "tekst": re.sub(r"\s+", " ", tekst or "")[:300],
-         "verkocht_bron": False, "biedingen": [], "veiling": None}
+         "verkocht_bron": False, "biedingen": [], "veiling": None, "kiel": "", "kiel_bron": "", "mast_hoogte_m": None, "mast_hoogte_bron": "", "diepgang_m": None}
     r.update(extra)
+    extraheer(r, (titel or "") + ". " + (tekst or ""))
     return r
 
 
@@ -170,7 +234,12 @@ def mp_detail(r):
                   for b in info.get("bids", []) if b["value"] / 100 <= 5_000_000]
         r["biedingen_actief"] = bool(info.get("isBiddingEnabled"))
         voeg_biedingen_toe(r, bieden)
-    m = re.search(r'"(?:lengte|length)"[^}]{0,80}"value":"([\d.,]+)"', h)
+    m = re.search(r'"description":"((?:[^"\\]|\\.)*)"', h[h.find('window.__CONFIG__'):] if 'window.__CONFIG__' in h else h)
+    if m:
+        try:
+            extraheer(r, json.loads('"' + m.group(1) + '"'))
+        except Exception:
+            pass
     return True
 
 
@@ -219,6 +288,24 @@ def botenjachten():
     return uit
 
 
+def bj_detail(r, oud):
+    """Specificaties (Kieltype, Doorvaarthoogte, Diepgang) uit de detailpagina; eenmalig per boot."""
+    o = oud.get(r["id"]) or {}
+    if o.get("details_gelezen"):
+        for k in ("kiel", "kiel_bron", "mast_hoogte_m", "mast_hoogte_bron", "diepgang_m"):
+            if o.get(k):
+                r[k] = o[k]
+        r["details_gelezen"] = True
+        return
+    h = haal(r["url"], tries=2)
+    if not h:
+        return
+    t = html.unescape(re.sub(r"\s+", " ", re.sub(r"<[^>]+>", " ", re.sub(r"<(script|style|svg)[^>]*>.*?</\1>", "", h, flags=re.S))))
+    extraheer(r, t)
+    r["details_gelezen"] = True
+    time.sleep(0.5)
+
+
 # ---------------------------------------------------------------- De Valk Yacht Brokers (met 'Verkocht!')
 def devalk():
     uit = []
@@ -245,9 +332,11 @@ def devalk():
             pr = re.search(r"Vraagprijs\s*€?\s*([\d.]+)", seg)
             lig = re.search(r"Ligplaats bij (.{3,50}?)(?: Brandstof| Motor| Prijs| Vraagprijs|$)", seg)
             img = re.search(r'property="og:image" content="([^"]+)"', dh)
-            uit.append(maak("devalk", u[1], u[0], titel, seg, getal(pr.group(1)) if pr and not verkocht else None, "EUR",
-                            int(jr.group(1)) if jr else None, float(af.group(1)) if af else None, "", lig.group(1) if lig else "",
-                            img.group(1) if img else "", verkocht_bron=verkocht))
+            r = maak("devalk", u[1], u[0], titel, seg, getal(pr.group(1)) if pr and not verkocht else None, "EUR",
+                     int(jr.group(1)) if jr else None, float(af.group(1)) if af else None, "", lig.group(1) if lig else "",
+                     img.group(1) if img else "", verkocht_bron=verkocht)
+            extraheer(r, t if not verkocht else t[t.rfind(titel + " Afmetingen"):])
+            uit.append(r)
         time.sleep(0.5)
     return uit
 
@@ -267,8 +356,10 @@ def doeve():
         jr = re.search(r"Bouwjaar[^\d]{0,10}(\d{4})", t)
         lm = re.search(r"Lengte[^\d]{0,15}([\d,.]+)\s*m", t)
         img = re.search(r'property="og:image" content="([^"]+)"', dh)
-        uit.append(maak("doeve", sid, u, titel, t[:600], getal(pr.group(1)) if pr else None, "EUR", int(jr.group(1)) if jr else None,
-                        getal(lm.group(1)) if lm else None, "NL", "", img.group(1) if img else "", verkocht_bron="verkocht" in t.lower()[:400]))
+        r = maak("doeve", sid, u, titel, t[:600], getal(pr.group(1)) if pr else None, "EUR", int(jr.group(1)) if jr else None,
+                        getal(lm.group(1)) if lm else None, "NL", "", img.group(1) if img else "", verkocht_bron="verkocht" in t.lower()[:400])
+        extraheer(r, t)
+        uit.append(r)
     return uit
 
 
@@ -319,6 +410,7 @@ def ba_detail(u, bid):
     r = maak("boatauction", bid, u, titel, omschr, None, "EUR", jaar if jaar and jaar >= 1950 else None,
              (int(ln.group(1) or ln.group(2)) / 100) if ln else None, pl.group(2) if pl else "NL", pl.group(1) if pl else "",
              img.group(1) if img else "")
+    extraheer(r, t)
     r["veiling"] = {"platform": "boatauction", "gesloten": gesloten, "einde": einde, "huidig_bod": bod, "bieden_aantal": aantal}
     if bod:
         r["biedingen"] = [{"d": nu_iso(), "bedrag": round(bod), "naam": "", "aantal": aantal}]
@@ -461,6 +553,9 @@ def werk_bij(oud, nieuw, bronnen_ok, nu):
                     r["veiling"]["verlengingen"].append({"d": nu, "van": o["veiling"]["einde"], "naar": r["veiling"]["einde"]})
             elif o.get("veiling"):
                 r["veiling"] = o["veiling"]
+            for k in ("kiel", "kiel_bron", "mast_hoogte_m", "mast_hoogte_bron", "diepgang_m", "details_gelezen"):
+                if o.get(k) and not r.get(k):
+                    r[k] = o[k]
             for k in ("kwaliteit", "notitie", "historisch"):
                 if k in o:
                     r[k] = o[k]
@@ -543,11 +638,11 @@ def schrijf(boten, nu, bronstatus):
     with open(DATA / "boten.csv", "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
         w.writerow(["id", "website", "url", "titel", "type", "lengte_voet", "bouwjaar", "land", "plaats", "status", "eerst_gezien", "offline_sinds",
-                    "huidige_prijs", "valuta", "aantal_prijzen", "aantal_biedingen", "hoogste_bod", "kwaliteit"])
+                    "huidige_prijs", "valuta", "aantal_prijzen", "aantal_biedingen", "hoogste_bod", "kiel", "mast_hoogte_m", "diepgang_m", "kwaliteit"])
         for b in lijst:
             w.writerow([b["id"], b["bron"], b["url"], b["titel"], b["type"], b.get("lengte_ft"), b.get("bouwjaar"), b.get("land"), b.get("plaats"),
                         b.get("status"), b["eerst_gezien"], b.get("offline_sinds") or "", b.get("prijs") or "", b.get("valuta"),
-                        len(b["prijshistorie"]), len(b["biedingen"]), max([x["bedrag"] for x in b["biedingen"]] or [""]), b.get("kwaliteit") or ""])
+                        len(b["prijshistorie"]), len(b["biedingen"]), max([x["bedrag"] for x in b["biedingen"]] or [""]), b.get("kiel") or "", b.get("mast_hoogte_m") or "", b.get("diepgang_m") or "", b.get("kwaliteit") or ""])
     with open(DATA / "prijzen.csv", "w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
         w.writerow(["boot_id", "website", "type", "lengte_voet", "datum_ingegaan", "prijs_eur", "oorspronkelijke_valuta", "oorspronkelijke_prijs"])
@@ -585,6 +680,8 @@ def main():
             o = oud.get(r["id"]) or {}
             if r.get("prijstype") in ("min_bid", "fast_bid") or o.get("biedingen_actief") or not o:
                 mp_detail(r)
+        elif r["bron"] == "botenjachten":
+            bj_detail(r, oud)
         elif r["bron"] == "troostwijk":
             tw_ververs(r)
         elif r["bron"] == "boatauction":
