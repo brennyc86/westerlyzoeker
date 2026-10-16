@@ -517,9 +517,13 @@ def eur(r, prijs):
 
 def laad():
     try:
-        return {a["id"]: a for a in json.load(open(DATA / "boten.json"))["boten"]}
+        boten = {a["id"]: a for a in json.load(open(DATA / "boten.json"))["boten"]}
     except Exception:
         return {}
+    for a in boten.values():       # records van vóór de 'historisch'-vlag: direct bij de eerste controle al afgesloten = historie
+        if "historisch" not in a:
+            a["historisch"] = bool(a.get("offline_sinds")) and a["offline_sinds"][:16] == a["eerst_gezien"][:16]
+    return boten
 
 
 def probe(r):
