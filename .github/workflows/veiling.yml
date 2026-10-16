@@ -1,0 +1,25 @@
+name: Veilingen volgen
+on:
+  schedule:
+    - cron: "*/10 * * * *"
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: data
+  cancel-in-progress: false
+jobs:
+  veiling:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: python3 veiling.py
+      - name: Opslaan
+        run: |
+          git config user.name "zoek-bot"
+          git config user.email "bot@users.noreply.github.com"
+          git add docs/data
+          git diff --cached --quiet || (git commit -m "Veilingstand bijgewerkt" && git pull --rebase -X theirs && git push)

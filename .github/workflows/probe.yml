@@ -1,0 +1,23 @@
+name: Sites testen
+on: workflow_dispatch
+jobs:
+  probe:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Welke sites zijn bereikbaar vanaf GitHub?
+        run: |
+          UA="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/124 Safari/537.36"
+          for u in \
+            "https://www.botentekoop.nl/boten/merk-westerly/" \
+            "https://www.botentekoop.nl/zeilboten/westerly/" \
+            "https://www.yachtfocus.com/boten/soort-zeilboten/klasse-zeiljachten/merk-westerly/" \
+            "https://www.botenbank.nl/boten/categorie-zeilboten/fabrikant-westerly/" \
+            "https://www.boat24.com/nl/zeilboten/westerly/" \
+            "https://www.yachtworld.com/boats/westerly/" \
+            "https://www.boatshop24.com/nl/boats/westerly/" \
+            "https://www.marktplaats.nl/lrp/api/search?query=westerly&limit=5" \
+            "https://www.boten-jachten.nl/nl/verkoop/westerly" \
+            "https://storefront.tbauctions.com/storefront/graphql" \
+            "https://boatauction.com/nl/" ; do
+            printf "%s " "$u"; curl -s -m 25 -L -A "$UA" -o /tmp/x.html -w "%{http_code} %{size_download}\n" "$u"
+          done

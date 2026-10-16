@@ -1,0 +1,265 @@
+<!doctype html>
+<html lang="nl">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Westerly zoeker</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+:root{--bg:#f3f6f9;--kaart:#fff;--tekst:#1b2733;--zacht:#5b6b7b;--rand:#d9e0e8;--accent:#0b5fa5;--goed:#1a7f37;--slecht:#c62828;--let:#b26a00;--ster:#e0a800}
+@media(prefers-color-scheme:dark){:root{--bg:#0e161e;--kaart:#17212c;--tekst:#e6edf3;--zacht:#92a1b1;--rand:#293645;--accent:#5aa9ff;--goed:#4cc26b;--slecht:#ff7b72;--let:#e3a008;--ster:#f2c230}}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tekst);font:15px/1.4 system-ui,sans-serif}
+header,main{max-width:1150px;margin:auto;padding:0 16px}header{padding-top:14px}
+h1{margin:0 0 2px;font-size:22px}.sub{color:var(--zacht);font-size:13px}.meta{color:var(--zacht);font-size:13px}
+nav{display:flex;gap:6px;margin:12px 0;flex-wrap:wrap}nav button{border:1px solid var(--rand);background:var(--kaart);color:var(--tekst);padding:7px 14px;border-radius:99px;cursor:pointer;font:inherit}
+nav button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.bar{background:var(--kaart);border:1px solid var(--rand);border-radius:10px;padding:10px 12px;display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));margin-bottom:12px}
+label{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--zacht)}label.v{flex-direction:row;align-items:center;gap:6px;font-size:13px;color:var(--tekst)}
+select,input[type=search],input[type=number]{padding:7px;border:1px solid var(--rand);border-radius:6px;background:var(--bg);color:var(--tekst);font:inherit}
+.kpis{display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(150px,1fr));margin-bottom:12px}
+.kpi{background:var(--kaart);border:1px solid var(--rand);border-radius:10px;padding:10px 12px}.kpi b{display:block;font-size:22px}.kpi span{font-size:12px;color:var(--zacht)}
+.grid{display:grid;gap:12px;grid-template-columns:repeat(auto-fit,minmax(420px,1fr))}
+.box{background:var(--kaart);border:1px solid var(--rand);border-radius:10px;padding:10px 12px;min-width:0}.box h3{margin:0 0 6px;font-size:14px}.box canvas{max-height:300px}
+table{border-collapse:collapse;width:100%;font-size:13px}th,td{text-align:left;padding:4px 8px 4px 0;border-bottom:1px solid var(--rand);vertical-align:top}.tw{overflow-x:auto}
+.lijst{display:grid;gap:10px}.boot{background:var(--kaart);border:1px solid var(--rand);border-radius:10px;overflow:hidden}.boot.dis{opacity:.5}
+.rij{display:grid;grid-template-columns:130px 1fr auto;gap:12px;padding:10px}.foto{width:130px;height:95px;object-fit:cover;border-radius:6px;background:var(--rand)}
+.titel a{color:inherit;font-weight:600;text-decoration:none}.titel a:hover{text-decoration:underline;color:var(--accent)}
+.prijs{text-align:right;font-weight:700;font-size:19px;white-space:nowrap}.prijs small{display:block;font-weight:400;color:var(--zacht);font-size:11px}
+.badges{display:flex;flex-wrap:wrap;gap:5px;margin-top:5px}.b{font-size:11px;padding:2px 7px;border-radius:99px;border:1px solid var(--rand);white-space:nowrap}
+.b.goed{color:var(--goed);border-color:var(--goed)}.b.slecht{color:var(--slecht);border-color:var(--slecht)}.b.let{color:var(--let);border-color:var(--let)}.b.nw{background:var(--accent);color:#fff;border-color:var(--accent)}
+.sterren{display:flex;align-items:center;gap:2px;margin-top:6px}.sterren button{background:none;border:0;font-size:22px;cursor:pointer;color:var(--rand);padding:0 1px;line-height:1}.sterren button.on{color:var(--ster)}.sterren .meta{margin-left:8px}
+.knop{background:none;border:0;border-top:1px solid var(--rand);width:100%;padding:7px;color:var(--accent);font:inherit;font-size:13px;cursor:pointer}
+.det{border-top:1px solid var(--rand);padding:10px 12px;display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));font-size:13px}.det h4{margin:0 0 5px;font-size:13px}.det td:first-child{color:var(--zacht);white-space:nowrap}
+.bod{background:var(--bg);border:1px solid var(--let);border-radius:6px;padding:5px 8px;font-size:12px;margin-top:6px}
+.knopje{border:1px solid var(--rand);background:var(--bg);color:var(--tekst);border-radius:6px;padding:6px 12px;cursor:pointer;font:inherit}
+.vk{margin-bottom:12px}.cd{font-variant-numeric:tabular-nums;font-weight:700}
+.sectie{display:none}.sectie.on{display:block}
+@media(max-width:600px){.rij{grid-template-columns:90px 1fr}.foto{width:90px;height:70px}.prijs{grid-column:1/-1;text-align:left}.grid{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<header>
+  <h1>⛵ Westerly zoeker</h1>
+  <div class="sub" id="status">Laden…</div>
+  <nav id="nav">
+    <button data-t="dash" class="on">📊 Dashboard</button><button data-t="boten">⛵ Boten</button><button data-t="veil">🔨 Veilingen</button><button data-t="data">💾 Beoordelingen &amp; data</button>
+  </nav>
+</header>
+<main>
+  <div class="bar">
+    <label>Land<select id="land"><option value="NL">Nederland</option><option value="">Alle landen</option></select></label>
+    <label>Model<select id="model"><option value="">Alle modellen</option></select></label>
+    <label>Status<select id="stat"><option value="actief">Nu te koop / op veiling</option><option value="alle">Alles (incl. verkocht/offline)</option><option value="weg">Alleen verkocht/offline</option></select></label>
+    <label>Zoek<input type="search" id="q" placeholder="model, plaats, tekst…"></label>
+    <label>Min. beoordeling<select id="minster"><option value="0">alle</option><option value="1">★ 1+</option><option value="2">★ 2+</option><option value="3">★ 3+</option><option value="4">★ 4+</option><option value="5">★ 5</option></select></label>
+    <label>Sorteer<select id="sort"><option value="prijs">Prijs ↑</option><option value="prijsd">Prijs ↓</option><option value="nieuw">Nieuwst</option><option value="jaar">Bouwjaar nieuw → oud</option><option value="ft">Lengte (voet)</option><option value="ster">Beoordeling</option></select></label>
+    <label class="v"><input type="checkbox" id="onbek"> toon boten zonder prijs</label>
+  </div>
+
+  <section id="s-dash" class="sectie on">
+    <div class="kpis" id="kpis"></div>
+    <div class="grid">
+      <div class="box"><h3>Vraagprijs per model (laagste – hoogste, ◆ = mediaan)</h3><canvas id="c1"></canvas></div>
+      <div class="box"><h3>Prijs per bouwjaar</h3><canvas id="c2"></canvas></div>
+      <div class="box"><h3>Prijs per voet lengte (mediaan, €/ft)</h3><canvas id="c3"></canvas></div>
+      <div class="box"><h3>Prijs tegen lengte (voet)</h3><canvas id="c4"></canvas></div>
+      <div class="box"><h3>Aanbod in de tijd (aantal tegelijk te koop)</h3><canvas id="c5"></canvas></div>
+      <div class="box"><h3>Gemiddeld aantal dagen te koop (afgesloten advertenties)</h3><canvas id="c6"></canvas></div>
+    </div>
+    <div class="box" style="margin-top:12px"><h3>Per model</h3><div class="tw" id="modeltabel"></div></div>
+    <p class="meta">Prijzen van boten buiten euroland worden omgerekend (GBP ≈ 1,15 €) en zijn indicatief. Het dashboard telt dezelfde boot op meerdere sites één keer.</p>
+  </section>
+
+  <section id="s-boten" class="sectie"><div class="meta" id="tel"></div><div class="lijst" id="lijst"></div></section>
+  <section id="s-veil" class="sectie"><div id="veil"></div></section>
+
+  <section id="s-data" class="sectie">
+    <div class="box vk"><h3>Beoordelingen (kwaliteit 1–5)</h3>
+      <p class="meta">Je sterren en notities staan in deze browser. Exporteer ze regelmatig als back-up; importeer ze op een ander apparaat of als de browser ze kwijt is.</p>
+      <p><button class="knopje" id="exjson">⬇ Exporteer JSON</button> <button class="knopje" id="excsv">⬇ Exporteer CSV</button>
+      <label style="display:inline-flex;flex-direction:row;gap:6px;align-items:center;margin-left:8px">⬆ Importeer (JSON of CSV) <input type="file" id="imp" accept=".json,.csv,application/json,text/csv"></label></p>
+      <p><button class="knopje" id="linkknop">📋 Kopieer overdrachtslink</button> <span class="meta" id="linkst"></span></p>
+      <p class="meta" id="impst"></p>
+    </div>
+    <div class="box"><h3>Alle gegevens als bestand</h3>
+      <p class="meta">Wordt elk uur ververst. <a href="data/boten.json">boten.json</a> (alles, inclusief historie) · <a href="data/boten.csv">boten.csv</a> (overzicht per boot) · <a href="data/prijzen.csv">prijzen.csv</a> (alle prijzen met ingangsdatum) · <a href="data/biedingen.csv">biedingen.csv</a> (alle biedingen met tijdstip)</p>
+      <p class="meta">Per boot staan er: type, lengte in voet, bouwjaar, website(s), alle prijzen met datum, biedingen met tijdstip, wanneer de boot online kwam en verkocht of offline ging, en een veld <code>kwaliteit</code> (nu nog leeg: placeholder voor je eigen beoordeling).</p>
+    </div>
+  </section>
+</main>
+
+<script>
+const $=id=>document.getElementById(id);
+const esc=s=>String(s??"").replace(/[&<>"]/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+const euro=n=>n==null?"?":"€ "+Math.round(n).toLocaleString("nl-NL");
+const dt=s=>s?new Date(s).toLocaleDateString("nl-NL",{day:"numeric",month:"short",year:"numeric"}):"?";
+const dtt=s=>s?new Date(s).toLocaleString("nl-NL",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}):"?";
+const dagen=(a,b)=>Math.max(0,Math.round((new Date(b)-new Date(a))/864e5));
+const mediaan=a=>{if(!a.length)return null;const s=[...a].sort((x,y)=>x-y),m=s.length>>1;return s.length%2?s[m]:(s[m-1]+s[m])/2};
+const KLEUR=["#0b6bcb","#d1495b","#2e9e57","#e0a800","#8e5bd6","#00a3a3","#e07b39","#6c7a89","#b5338a","#4c9f70"];
+let data=null, ratings={}, tab="dash", charts={};
+try{ratings=JSON.parse(localStorage.getItem("ratings")||"{}")}catch(e){}
+const sleutel=b=>b.id;
+const ster=b=>(ratings[sleutel(b)]||{}).k||0;
+function bewaar(){try{localStorage.setItem("ratings",JSON.stringify(ratings))}catch(e){}}
+
+// ---------- data voorbereiden
+function prep(d){
+  const per={}; d.boten.forEach(b=>per[b.id]=b);
+  d.boten.forEach(b=>{b._andere=[]});
+  d.boten.forEach(b=>{if(b.zelfde_als&&per[b.zelfde_als])per[b.zelfde_als]._andere.push(b)});
+  d.primair=d.boten.filter(b=>!b.zelfde_als||!per[b.zelfde_als]);
+}
+function actief(b){return b.online!==false && !(b._andere&&0)}
+function gefilterd(){
+  const land=$("land").value,mo=$("model").value,st=$("stat").value,q=$("q").value.toLowerCase(),ms=+$("minster").value;
+  return data.primair.filter(b=>{
+    const online=b.online!==false||b._andere.some(o=>o.online!==false);
+    if(land&&b.land!==land&&!b._andere.some(o=>o.land===land)) return false;
+    if(mo&&b.type!==mo) return false;
+    if(st==="actief"&&!online) return false; if(st==="weg"&&online) return false;
+    if(ms&&ster(b)<ms) return false;
+    if(!$("onbek").checked&&b.prijs_eur==null&&!(b.biedingen||[]).length&&tab!=="veil") return false;
+    if(q&&!(b.titel+" "+b.type+" "+b.plaats+" "+b.tekst+" "+b.land).toLowerCase().includes(q)) return false;
+    return true;});
+}
+function prijs(b){const l=b.prijshistorie||[];return b.prijs_eur??(l.length?l[l.length-1].p:null)}
+function stat(b){return b._andere.length?(b.online!==false?b.status:(b._andere.find(o=>o.online!==false)||b).status):b.status}
+
+// ---------- dashboard
+function maakGrafiek(id,cfg){if(charts[id])charts[id].destroy();charts[id]=new Chart($(id),cfg)}
+function dashboard(){
+  const l=gefilterd().filter(b=>prijs(b)!=null), tekst=getComputedStyle(document.body).color, raster=getComputedStyle(document.body).getPropertyValue("--rand");
+  Chart.defaults.color=tekst; Chart.defaults.borderColor=raster;
+  const modellen=[...new Set(l.map(b=>b.type))].sort(), per={};
+  modellen.forEach(m=>per[m]=l.filter(b=>b.type===m));
+  const actieven=l.filter(b=>b.online!==false), ended=data.primair.filter(b=>b.online===false&&b.eerst_gezien);
+  $("kpis").innerHTML=[["Te koop nu (in selectie)",actieven.length],["Mediane vraagprijs",euro(mediaan(actieven.map(prijs)))],["Goedkoopste",euro(Math.min(...actieven.map(prijs)))],["Duurste",euro(Math.max(...actieven.map(prijs)))],
+    ["Actieve veilingen",data.boten.filter(b=>b.veiling&&b.online!==false).length],["Verkocht / offline gehaald",ended.length]].map(([k,v])=>`<div class="kpi"><b>${v==Infinity||v==-Infinity?"–":v}</b><span>${k}</span></div>`).join("");
+  const mm=modellen.filter(m=>per[m].length);
+  maakGrafiek("c1",{type:"bar",data:{labels:mm,datasets:[{label:"min–max",data:mm.map(m=>[Math.min(...per[m].map(prijs)),Math.max(...per[m].map(prijs))]),backgroundColor:"#0b6bcb88"},
+    {type:"line",label:"mediaan",data:mm.map(m=>mediaan(per[m].map(prijs))),showLine:false,pointStyle:"rectRot",pointRadius:6,backgroundColor:"#d1495b",borderColor:"#d1495b"}]},options:{plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>"€"+v/1000+"k"}}}}});
+  const top=mm.sort((a,b)=>per[b].length-per[a].length).slice(0,8);
+  maakGrafiek("c2",{type:"scatter",data:{datasets:top.map((m,i)=>({label:m,data:per[m].filter(b=>b.bouwjaar).map(b=>({x:b.bouwjaar,y:prijs(b)})),backgroundColor:KLEUR[i%10]}))},options:{scales:{x:{ticks:{callback:v=>v}},y:{ticks:{callback:v=>"€"+v/1000+"k"}}}}});
+  const pft=mm.map(m=>mediaan(per[m].filter(b=>b.lengte_ft).map(b=>prijs(b)/b.lengte_ft)));
+  maakGrafiek("c3",{type:"bar",data:{labels:mm,datasets:[{data:pft,backgroundColor:"#2e9e57"}]},options:{plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>"€"+Math.round(v)}}}}});
+  maakGrafiek("c4",{type:"scatter",data:{datasets:top.map((m,i)=>({label:m,data:per[m].filter(b=>b.lengte_ft).map(b=>({x:b.lengte_ft,y:prijs(b)})),backgroundColor:KLEUR[i%10]}))},options:{scales:{x:{title:{display:true,text:"voet"}},y:{ticks:{callback:v=>"€"+v/1000+"k"}}}}});
+  // aanbod in de tijd
+  const ev=[];data.primair.forEach(b=>{ev.push([b.eerst_gezien,1]);if(b.online===false&&b.offline_sinds)ev.push([b.offline_sinds,-1])});
+  ev.sort((a,b)=>a[0]<b[0]?-1:1); let n=0; const pts=ev.map(([d,x])=>({x:new Date(d).getTime(),y:(n+=x)}));
+  if(pts.length) pts.push({x:Date.now(),y:n});
+  maakGrafiek("c5",{type:"line",data:{datasets:[{label:"aantal",data:pts,stepped:true,borderColor:"#0b6bcb",fill:false,pointRadius:2}]},options:{plugins:{legend:{display:false}},scales:{x:{type:"linear",ticks:{callback:v=>new Date(v).toLocaleDateString("nl-NL",{day:"numeric",month:"short"})}}}}});
+  const looptijd={}; ended.forEach(b=>{if(b.offline_sinds){(looptijd[b.type]=looptijd[b.type]||[]).push(dagen(b.eerst_gezien,b.offline_sinds))}});
+  const lt=Object.keys(looptijd);
+  maakGrafiek("c6",{type:"bar",data:{labels:lt,datasets:[{data:lt.map(m=>Math.round(looptijd[m].reduce((a,b)=>a+b,0)/looptijd[m].length)),backgroundColor:"#e0a800"}]},options:{plugins:{legend:{display:false}}}});
+  $("modeltabel").innerHTML="<table><tr><th>Model</th><th>Aantal</th><th>Laagste</th><th>Mediaan</th><th>Hoogste</th><th>€/voet</th><th>Voet</th><th>Te koop dagen (afgesloten)</th></tr>"+mm.map((m,i)=>{
+    const p=per[m].map(prijs),lt2=looptijd[m]||[];return `<tr><td>${esc(m)}</td><td>${p.length}</td><td>${euro(Math.min(...p))}</td><td>${euro(mediaan(p))}</td><td>${euro(Math.max(...p))}</td><td>${pft[i]?euro(pft[i]):"–"}</td><td>${per[m][0].lengte_ft||"?"}</td><td>${lt2.length?Math.round(lt2.reduce((a,b)=>a+b,0)/lt2.length)+" ("+lt2.length+")":"–"}</td></tr>`}).join("")+"</table>";
+}
+
+// ---------- bootkaarten
+function sterren(b){const k=ster(b);return `<div class="sterren" data-id="${esc(b.id)}">${[1,2,3,4,5].map(i=>`<button class="${i<=k?"on":""}" data-k="${i}" title="${i} ster${i>1?"ren":""}">★</button>`).join("")}<span class="meta">${k?k+"/5":"niet beoordeeld"}${(ratings[b.id]||{}).n?" — “"+esc(ratings[b.id].n)+"”":""}</span></div>`}
+function historieHTML(b){
+  const ph=b.prijshistorie||[],bd=b.biedingen||[],ev=b.gebeurtenissen||[],v=b.veiling;
+  let h=`<div><h4>Looptijd</h4><table><tr><td>Eerst gezien</td><td>${dtt(b.eerst_gezien)}</td></tr><tr><td>Status</td><td>${esc(b.status)}${b.offline_sinds?" — "+dtt(b.offline_sinds):""}</td></tr>
+    <tr><td>Dagen ${b.online===false?"te koop geweest":"al te koop"}</td><td>${dagen(b.eerst_gezien,b.offline_sinds||new Date())}</td></tr><tr><td>Website</td><td>${[b,...b._andere].map(x=>`<a href="${esc(x.url)}" target="_blank" rel="noopener">${esc(x.bron)}</a>`).join(" · ")}</td></tr>
+    <tr><td>Lengte</td><td>${b.lengte_ft??"?"} ft <span class="meta">(${esc(b.lengte_bron||"onbekend")}${b.lengte_m?"; gemeten "+b.lengte_m+" m":""})</span></td></tr></table>
+    <ul>${ev.map(e=>`<li>${esc(e.t)} — ${dtt(e.d)}${e.eindbod?" (eindbod "+euro(e.eindbod)+")":""}</li>`).join("")}</ul></div>`;
+  h+=`<div><h4>Prijzen</h4>${ph.length?"<table>"+[...ph].reverse().map((p,i,a)=>{const v0=a[i+1];const dl=v0?p.p-v0.p:0;return `<tr><td>${dtt(p.d)}</td><td>${euro(p.p)}${p.valuta&&p.valuta!=="EUR"?` <span class="meta">(${Math.round(p.orig)} ${p.valuta})</span>`:""} ${dl?`<b style="color:var(--${dl<0?"goed":"slecht"})">${dl<0?"▼":"▲"} ${euro(Math.abs(dl))}</b>`:""}</td></tr>`}).join("")+"</table>":'<p class="meta">Geen prijs bekend.</p>'}</div>`;
+  if(bd.length||v){
+    h+=`<div><h4>Biedingen (${bd.length} vastgelegd${v&&v.bieden_aantal?", site meldt "+v.bieden_aantal:""})</h4>${bd.length?"<table>"+[...bd].reverse().map(x=>`<tr><td>${dtt(x.d)}</td><td>${euro(x.bedrag)}${x.aantal?` <span class="meta">(${x.aantal} biedingen)</span>`:""} ${x.naam?`<span class="meta">${esc(x.naam)}</span>`:""}</td></tr>`).join("")+"</table>":'<p class="meta">Nog geen bod.</p>'}
+    ${v&&v.verlengingen&&v.verlengingen.length?`<h4 style="margin-top:8px">Verlengingen eindtijd (${v.verlengingen.length})</h4><ul>${v.verlengingen.map(x=>`<li>${dtt(x.d)}: ${dtt(x.van)} → ${dtt(x.naar)}</li>`).join("")}</ul>`:""}
+    <p class="meta">Bij veilingen is alleen vastgelegd wat wij hebben waargenomen; biedingen van vóór de eerste controle ontbreken.</p></div>`;
+  }
+  return `<div class="det">${h}</div>`;
+}
+function kaart(b){
+  const p=prijs(b),ph=b.prijshistorie||[],bd=b.biedingen||[],v=b.veiling;
+  const badges=[`<span class="b ${b.online===false?"slecht":"goed"}">${esc(stat(b))}</span>`,b.land?`<span class="b">${esc(b.land)}${b.plaats?" · "+esc(b.plaats):""}</span>`:"",
+    b.bouwjaar?`<span class="b">${b.bouwjaar}</span>`:"",b.lengte_ft?`<span class="b">${b.lengte_ft} ft</span>`:"",`<span class="b">${esc(b.type)}</span>`];
+  if((Date.now()-new Date(b.eerst_gezien))/864e5<=2&&b.online!==false)badges.unshift('<span class="b nw">nieuw</span>');
+  if(ph.length>1){const d=ph[ph.length-1].p-ph[0].p;badges.push(`<span class="b ${d<0?"goed":"let"}">${d<0?"▼":"▲"} ${euro(Math.abs(d))} (was ${euro(ph[0].p)})</span>`)}
+  if(b._andere.length)badges.push(`<span class="b">ook op ${b._andere.map(x=>esc(x.bron)).join(", ")}</span>`);
+  let bod="";
+  if(v){const l=bd.length?bd[bd.length-1]:null;bod=`<div class="bod">🔨 ${v.gesloten?"Veiling gesloten":"Veiling eindigt"} <b class="cd" data-einde="${esc(v.einde||"")}">${dtt(v.einde)}</b> · huidig bod <b>${euro(v.huidig_bod)}</b> · ${v.bieden_aantal??bd.length} bieding(en)${v.verlengingen&&v.verlengingen.length?` · ${v.verlengingen.length}× verlengd`:""}</div>`}
+  else if(bd.length){const t=bd.reduce((a,c)=>c.bedrag>=a.bedrag?c:a);bod=`<div class="bod">🔨 Hoogste bod <b>${euro(t.bedrag)}</b> (${dtt(t.d)}) · ${bd.length} bieding(en)</div>`}
+  return `<div class="boot ${ratings[b.id]&&ratings[b.id].k===1?"dis":""}"><div class="rij"><img class="foto" loading="lazy" src="${esc(b.foto)}" alt="" onerror="this.style.visibility='hidden'">
+    <div><div class="titel"><a href="${esc(b.url)}" target="_blank" rel="noopener">${esc(b.titel)}</a></div><div class="badges">${badges.join("")}</div>${bod}${sterren(b)}
+    <div class="meta" style="margin-top:4px">${esc((b.tekst||"").slice(0,160))}</div></div>
+    <div class="prijs">${p==null?(v?"veiling":"?"):euro(p)}<small>${b.valuta&&b.valuta!=="EUR"&&b.prijs?Math.round(b.prijs)+" "+b.valuta:""}</small></div></div>
+    <button class="knop" data-id="${esc(b.id)}">Details: prijzen, biedingen, looptijd ▾</button></div>`;
+}
+function lijst(){
+  let l=gefilterd(),so=$("sort").value;
+  l.sort((a,b)=>so==="prijs"?(prijs(a)??9e9)-(prijs(b)??9e9):so==="prijsd"?(prijs(b)??-1)-(prijs(a)??-1):so==="nieuw"?(b.eerst_gezien>a.eerst_gezien?1:-1):so==="jaar"?(b.bouwjaar||0)-(a.bouwjaar||0):so==="ft"?(b.lengte_ft||0)-(a.lengte_ft||0):ster(b)-ster(a));
+  $("tel").textContent=l.length+" boten";
+  $("lijst").innerHTML=l.map(kaart).join("")||'<p class="meta">Niets gevonden met deze filters.</p>';
+  bindKaarten();
+}
+function bindKaarten(root=document){
+  root.querySelectorAll(".sterren button").forEach(x=>x.onclick=()=>{
+    const id=x.parentNode.dataset.id,k=+x.dataset.k,huidig=(ratings[id]||{}).k||0;
+    if(huidig===k){ratings[id]={...ratings[id],k:0,d:new Date().toISOString()}}
+    else{const n=prompt("Beoordeling "+k+"/5 — notitie (optioneel):",(ratings[id]||{}).n||"");if(n===null)return;
+      ratings[id]={k,n:n.trim(),d:new Date().toISOString(),t:(data.boten.find(b=>b.id===id)||{}).titel}}
+    bewaar();render()});
+  root.querySelectorAll(".knop").forEach(x=>x.onclick=()=>{
+    const open=x.nextElementSibling&&x.nextElementSibling.classList.contains("det");
+    if(open){x.nextElementSibling.remove();x.textContent=x.textContent.replace("▴","▾");return}
+    x.insertAdjacentHTML("afterend",historieHTML(data.boten.find(b=>b.id===x.dataset.id)));x.textContent=x.textContent.replace("▾","▴")});
+}
+
+// ---------- veilingen
+function veilingen(){
+  const l=data.primair.filter(b=>b.veiling).sort((a,b)=>(a.veiling.einde||"")<(b.veiling.einde||"")?-1:1), nu=Date.now();
+  const nieuw=l.filter(b=>b.online!==false), oud=l.filter(b=>b.online===false);
+  $("veil").innerHTML=(nieuw.length?`<div class="lijst">${nieuw.map(kaart).join("")}</div>`:'<p class="meta">Geen lopende veilingen met een Westerly. Ik controleer Troostwijk/Vavato/BVA en Boatauction; bij een veiling die binnen 35 minuten eindigt wordt elke 45 seconden opnieuw gekeken (eindtijd verlengt bij laat bod).</p>')+
+    (oud.length?`<h3>Afgelopen veilingen</h3><div class="lijst">${oud.map(kaart).join("")}</div>`:"");
+  bindKaarten($("veil"));
+}
+setInterval(()=>{document.querySelectorAll(".cd").forEach(e=>{const t=e.dataset.einde;if(!t)return;const s=(new Date(t)-Date.now())/1000;
+  if(s>0&&s<86400){e.textContent=`nog ${Math.floor(s/3600)}u ${Math.floor(s%3600/60)}m ${Math.floor(s%60)}s`}})},1000);
+
+// ---------- export / import / overdracht
+function exportJSON(){return JSON.stringify({versie:1,aangemaakt:new Date().toISOString(),beoordelingen:ratings},null,1)}
+function exportCSV(){const kol=["id","titel","type","website","kwaliteit_1_5","notitie","beoordeeld_op"],r=[kol.join(";")];
+  Object.entries(ratings).filter(([,v])=>v.k).forEach(([id,v])=>{const b=data.boten.find(x=>x.id===id)||{};r.push([id,b.titel||v.t||"",b.type||"",b.bron||"",v.k,(v.n||"").replace(/[;\n]/g," "),v.d||""].map(x=>`"${String(x).replace(/"/g,'""')}"`).join(";"))});return r.join("\n")}
+function download(naam,tekst,type){const a=document.createElement("a");a.href=URL.createObjectURL(new Blob([tekst],{type}));a.download=naam;a.click()}
+function importeer(tekst,naam){
+  let n=0;
+  try{
+    if(naam.endsWith(".csv")){const rijen=tekst.trim().split(/\r?\n/).slice(1);rijen.forEach(r=>{const c=[...r.matchAll(/"((?:[^"]|"")*)"|([^;]+)/g)].map(m=>(m[1]??m[2]).replace(/""/g,'"'));
+        if(c[0]&&+c[4]>=1&&+c[4]<=5){const o=ratings[c[0]];if(!o||(c[6]||"")>=(o.d||"")){ratings[c[0]]={k:+c[4],n:c[5]||"",d:c[6]||new Date().toISOString(),t:c[1]};n++}}})}
+    else{const j=JSON.parse(tekst).beoordelingen||{};for(const id in j){const o=ratings[id];if(!o||(j[id].d||"")>=(o.d||"")){ratings[id]=j[id];n++}}}
+    bewaar();$("impst").textContent="✓ "+n+" beoordelingen geïmporteerd";render()}catch(e){$("impst").textContent="✗ importeren mislukt: "+e.message}
+}
+const u64=s=>btoa(String.fromCharCode(...new TextEncoder().encode(s))).replace(/\+/g,"-").replace(/\//g,"_").replace(/=+$/,"");
+const u64d=s=>new TextDecoder().decode(Uint8Array.from(atob(s.replace(/-/g,"+").replace(/_/g,"/")),c=>c.charCodeAt(0)));
+const INST=["land","model","stat","q","minster","sort"];
+function instellingen(){const o={};INST.forEach(i=>o[i]=$(i).value);o.onbek=$("onbek").checked;o.tab=tab;return o}
+function bewaarInst(){try{localStorage.setItem("inst",JSON.stringify(instellingen()))}catch(e){}}
+function laadInst(o){if(!o)return;INST.forEach(i=>{if(o[i]!==undefined)$(i).value=o[i]});if(o.onbek!==undefined)$("onbek").checked=o.onbek;if(o.tab)zetTab(o.tab,false)}
+function zetTab(t,render_=true){tab=t;document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("on",b.dataset.t===t));
+  document.querySelectorAll(".sectie").forEach(s=>s.classList.toggle("on",s.id==="s-"+t));document.querySelector(".bar").style.display=t==="data"?"none":"";if(render_)render()}
+function render(){if(!data)return;bewaarInst();if(tab==="dash")dashboard();else if(tab==="boten")lijst();else if(tab==="veil")veilingen()}
+
+fetch("data/boten.json?"+Date.now()).then(r=>r.json()).then(d=>{
+  data=d;prep(d);
+  [...new Set(d.boten.map(b=>b.type))].sort().forEach(m=>$("model").add(new Option(m,m)));
+  const bron=Object.entries(d.bronnen).map(([k,v])=>k+": "+(v<0?"fout":v)).join(" · ");
+  $("status").textContent="Laatst bijgewerkt: "+new Date(d.bijgewerkt).toLocaleString("nl-NL",{dateStyle:"medium",timeStyle:"short"})+" · "+bron+" · ververst elk uur (veilingen vlak voor het einde elke 45 seconden)";
+  const m=location.hash.match(/^#s=(.+)$/);
+  if(m){try{const o=JSON.parse(u64d(m[1]));for(const id in o.r||{}){const l=ratings[id];if(!l||(o.r[id].d||"")>(l.d||""))ratings[id]=o.r[id]}bewaar();laadInst(o.i);history.replaceState(null,"",location.pathname);$("status").textContent="✓ beoordelingen en instellingen overgenomen. "+$("status").textContent}catch(e){}}
+  try{if(!m)laadInst(JSON.parse(localStorage.getItem("inst")||"null"))}catch(e){}
+  document.querySelectorAll(".bar input,.bar select").forEach(e=>e.addEventListener("input",render));
+  document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>zetTab(b.dataset.t));
+  $("exjson").onclick=()=>download("westerly-beoordelingen.json",exportJSON(),"application/json");
+  $("excsv").onclick=()=>download("westerly-beoordelingen.csv","﻿"+exportCSV(),"text/csv");
+  $("imp").onchange=e=>{const f=e.target.files[0];if(f)f.text().then(t=>importeer(t,f.name.toLowerCase()))};
+  $("linkknop").onclick=async()=>{const l=location.origin+location.pathname+"#s="+u64(JSON.stringify({r:ratings,i:instellingen()}));try{await navigator.clipboard.writeText(l);$("linkst").textContent="✓ gekopieerd — open deze link op je andere apparaat"}catch(e){prompt("Kopieer deze link:",l)}};
+  render();
+}).catch(e=>{$("status").textContent="Kon data niet laden: "+e});
+// vernieuw data elke minuut op de veilingtab
+setInterval(()=>{if(tab!=="veil"||!data)return;fetch("data/boten.json?"+Date.now()).then(r=>r.json()).then(d=>{data=d;prep(d);veilingen()}).catch(()=>{})},60000);
+</script>
+</body>
+</html>
