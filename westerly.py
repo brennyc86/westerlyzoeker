@@ -523,6 +523,9 @@ def laad():
     for a in boten.values():       # records van vóór de 'historisch'-vlag: direct bij de eerste controle al afgesloten = historie
         if "historisch" not in a:
             a["historisch"] = bool(a.get("verkocht_bron")) or (bool(a.get("offline_sinds")) and a["offline_sinds"][:16] == a["eerst_gezien"][:16])
+    for a in boten.values():       # eenmalige correctie: De Valk/Doeve-verkopen uit de allereerste runs
+        if a.get("verkocht_bron") and not a.get("historisch") and a["eerst_gezien"] < "2026-10-17T06:00" and a["gebeurtenissen"] and a["gebeurtenissen"][0]["t"] == "online":
+            a["historisch"] = True
     return boten
 
 
