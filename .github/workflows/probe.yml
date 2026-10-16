@@ -21,3 +21,9 @@ jobs:
             "https://boatauction.com/nl/" ; do
             printf "%s " "$u"; curl -s -m 25 -L -A "$UA" -o /tmp/x.html -w "%{http_code} %{size_download}\n" "$u"
           done
+      - name: Troostwijk via POST en categoriepagina
+        run: |
+          UA="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/124 Safari/537.36"
+          curl -s -m 25 -A "$UA" -H "content-type: application/json" -d '{"query":"{ __schema { queryType { name } } }"}' -o /tmp/g.json -w "graphql POST %{http_code} %{size_download}\n" https://storefront.tbauctions.com/storefront/graphql; head -c 200 /tmp/g.json; echo
+          curl -s -m 25 -L -A "$UA" -o /tmp/c.html -w "TWK categoriepagina %{http_code} %{size_download}\n" "https://www.troostwijkauctions.com/nl/c/boats-yachts/sailing-boats/f23077a9-2f49-4129-891f-a9948ad47f0e"
+          grep -c "__NEXT_DATA__" /tmp/c.html || true

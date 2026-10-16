@@ -273,21 +273,21 @@ def doeve():
 
 
 # ---------------------------------------------------------------- Boatauction.com
+OUD = {}      # vorige stand; wordt in main() gezet zodat afgesloten veilingen niet opnieuw worden opgehaald
+
+
 def boatauction():
-    uit, gezien = [], set()
-    paginas = ["https://boatauction.com/nl/"] + [f"https://boatauction.com/nl/boats-to-sell/sort_by|end_date_asc/is_live|1/page|{p}" for p in range(1, 6)]
-    for url in paginas:
-        h = haal(url, tries=2)
-        links = set(re.findall(r'href="(https://boatauction\.com/nl/boat-selling/(\d+)/[^"]*westerly[^"]*)"', h or ""))
-        for u, bid in sorted(links):
-            if bid not in gezien:
-                gezien.add(bid)
-                r = ba_detail(u, bid)
-                if r:
-                    uit.append(r)
-        if h and "boat-selling" not in h:
-            break
-        time.sleep(0.5)
+    uit = []
+    h = haal("https://boatauction.com/nl/brands/westerly", tries=3) or ""
+    links = sorted(set(re.findall(r'(https://boatauction\.com/nl/boat-selling/(\d+)/sailboat/westerly/[a-z0-9-]+)', h)), key=lambda x: int(x[1]))
+    for u, bid in links:
+        o = OUD.get("boatauction-" + bid)
+        if o and (o.get("veiling") or {}).get("definitief"):
+            continue
+        r = ba_detail(u, bid)
+        if r:
+            uit.append(r)
+        time.sleep(0.4)
     return uit
 
 
@@ -315,8 +315,9 @@ def ba_detail(u, bid):
     img = re.search(r'property="og:image" content="([^"]+)"', h)
     i = t.find("Omschrijving kavel")
     omschr = t[i:i + 500] if i >= 0 else t[t.find("Basisgegevens"):][:500]
-    r = maak("boatauction", bid, u, titel, omschr, None, "EUR", int(jr.group(1) or jr.group(2)) if jr else None,
-             (int(ln.group(1) or ln.group(2)) / 100) if ln else None, pl.group(2) if pl else "", pl.group(1) if pl else "",
+    jaar = int(jr.group(1) or jr.group(2)) if jr else None
+    r = maak("boatauction", bid, u, titel, omschr, None, "EUR", jaar if jaar and jaar >= 1950 else None,
+             (int(ln.group(1) or ln.group(2)) / 100) if ln else None, pl.group(2) if pl else "NL", pl.group(1) if pl else "",
              img.group(1) if img else "")
     r["veiling"] = {"platform": "boatauction", "gesloten": gesloten, "einde": einde, "huidig_bod": bod, "bieden_aantal": aantal}
     if bod:
@@ -460,13 +461,14 @@ def werk_bij(oud, nieuw, bronnen_ok, nu):
                     r["veiling"]["verlengingen"].append({"d": nu, "van": o["veiling"]["einde"], "naar": r["veiling"]["einde"]})
             elif o.get("veiling"):
                 r["veiling"] = o["veiling"]
-            for k in ("kwaliteit", "notitie"):
+            for k in ("kwaliteit", "notitie", "historisch"):
                 if k in o:
                     r[k] = o[k]
             if not o.get("online", True):
                 r["gebeurtenissen"].append({"d": nu, "t": "weer online"})
         else:
             r["eerst_gezien"] = nu
+            r["historisch"] = bool(r.get("verkocht_bron") or (r.get("veiling") or {}).get("gesloten"))   # bij eerste controle al afgelopen: datums onbekend
             r["gebeurtenissen"] = [{"d": nu, "t": "verkocht (bij eerste controle al verkocht)" if r.get("verkocht_bron") else "online"}]
             r["prijshistorie"] = []
         r.setdefault("kwaliteit", None)
@@ -483,7 +485,15 @@ def werk_bij(oud, nieuw, bronnen_ok, nu):
             r["online"] = False
             r["offline_sinds"] = r["offline_sinds"] or nu
         elif r.get("veiling"):
-            r["status"] = "veiling gesloten" if r["veiling"].get("gesloten") else "veiling actief"
+            v = r["veiling"]
+            if v.get("gesloten"):
+                r["status"], r["online"] = "veiling gesloten", False
+                r["offline_sinds"] = r["offline_sinds"] or v.get("einde") or nu
+                v["definitief"] = True
+                if not any(e["t"] == "veiling gesloten" for e in r["gebeurtenissen"]):
+                    r["gebeurtenissen"].append({"d": r["offline_sinds"], "t": "veiling gesloten", "eindbod": v.get("huidig_bod")})
+            else:
+                r["status"] = "veiling actief"
         else:
             r["status"] = "te koop"
         uit[r["id"]] = r
@@ -491,6 +501,9 @@ def werk_bij(oud, nieuw, bronnen_ok, nu):
         if oid in uit:
             continue
         o = dict(o)
+        if (o.get("veiling") or {}).get("definitief"):
+            uit[oid] = o
+            continue
         if o.get("online", True) and o["bron"] in bronnen_ok:
             o["gemist"] = o.get("gemist", 0) + 1
             if o["gemist"] >= 2:
@@ -551,6 +564,7 @@ def schrijf(boten, nu, bronstatus):
 
 def main():
     oud = laad()
+    OUD.update(oud)
     nu = nu_iso()
     bronnen = [("marktplaats", marktplaats), ("botenjachten", botenjachten), ("devalk", devalk), ("doeve", doeve),
                ("boatauction", boatauction), ("troostwijk", veilingen_tw)]

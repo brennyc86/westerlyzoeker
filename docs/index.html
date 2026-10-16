@@ -133,9 +133,9 @@ function dashboard(){
   Chart.defaults.color=tekst; Chart.defaults.borderColor=raster;
   const modellen=[...new Set(l.map(b=>b.type))].sort(), per={};
   modellen.forEach(m=>per[m]=l.filter(b=>b.type===m));
-  const actieven=l.filter(b=>b.online!==false), ended=data.primair.filter(b=>b.online===false&&b.eerst_gezien);
+  const actieven=l.filter(b=>b.online!==false), ended=data.primair.filter(b=>b.online===false&&!b.historisch&&b.eerst_gezien), historisch=data.primair.filter(b=>b.historisch);
   $("kpis").innerHTML=[["Te koop nu (in selectie)",actieven.length],["Mediane vraagprijs",euro(mediaan(actieven.map(prijs)))],["Goedkoopste",euro(Math.min(...actieven.map(prijs)))],["Duurste",euro(Math.max(...actieven.map(prijs)))],
-    ["Actieve veilingen",data.boten.filter(b=>b.veiling&&b.online!==false).length],["Verkocht / offline gehaald",ended.length]].map(([k,v])=>`<div class="kpi"><b>${v==Infinity||v==-Infinity?"–":v}</b><span>${k}</span></div>`).join("");
+    ["Actieve veilingen",data.boten.filter(b=>b.veiling&&b.online!==false).length],["Verkocht / offline gehaald (sinds start)",ended.length],["Eerder verkocht / geveild (historie)",historisch.length]].map(([k,v])=>`<div class="kpi"><b>${v==Infinity||v==-Infinity?"–":v}</b><span>${k}</span></div>`).join("");
   const mm=modellen.filter(m=>per[m].length);
   maakGrafiek("c1",{type:"bar",data:{labels:mm,datasets:[{label:"min–max",data:mm.map(m=>[Math.min(...per[m].map(prijs)),Math.max(...per[m].map(prijs))]),backgroundColor:"#0b6bcb88"},
     {type:"line",label:"mediaan",data:mm.map(m=>mediaan(per[m].map(prijs))),showLine:false,pointStyle:"rectRot",pointRadius:6,backgroundColor:"#d1495b",borderColor:"#d1495b"}]},options:{plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>"€"+v/1000+"k"}}}}});
@@ -145,7 +145,7 @@ function dashboard(){
   maakGrafiek("c3",{type:"bar",data:{labels:mm,datasets:[{data:pft,backgroundColor:"#2e9e57"}]},options:{plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>"€"+Math.round(v)}}}}});
   maakGrafiek("c4",{type:"scatter",data:{datasets:top.map((m,i)=>({label:m,data:per[m].filter(b=>b.lengte_ft).map(b=>({x:b.lengte_ft,y:prijs(b)})),backgroundColor:KLEUR[i%10]}))},options:{scales:{x:{title:{display:true,text:"voet"}},y:{ticks:{callback:v=>"€"+v/1000+"k"}}}}});
   // aanbod in de tijd
-  const ev=[];data.primair.forEach(b=>{ev.push([b.eerst_gezien,1]);if(b.online===false&&b.offline_sinds)ev.push([b.offline_sinds,-1])});
+  const ev=[];data.primair.filter(b=>!b.historisch).forEach(b=>{ev.push([b.eerst_gezien,1]);if(b.online===false&&b.offline_sinds)ev.push([b.offline_sinds,-1])});
   ev.sort((a,b)=>a[0]<b[0]?-1:1); let n=0; const pts=ev.map(([d,x])=>({x:new Date(d).getTime(),y:(n+=x)}));
   if(pts.length) pts.push({x:Date.now(),y:n});
   maakGrafiek("c5",{type:"line",data:{datasets:[{label:"aantal",data:pts,stepped:true,borderColor:"#0b6bcb",fill:false,pointRadius:2}]},options:{plugins:{legend:{display:false}},scales:{x:{type:"linear",ticks:{callback:v=>new Date(v).toLocaleDateString("nl-NL",{day:"numeric",month:"short"})}}}}});
