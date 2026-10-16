@@ -522,7 +522,7 @@ def laad():
         return {}
     for a in boten.values():       # records van vóór de 'historisch'-vlag: direct bij de eerste controle al afgesloten = historie
         if "historisch" not in a:
-            a["historisch"] = bool(a.get("offline_sinds")) and a["offline_sinds"][:16] == a["eerst_gezien"][:16]
+            a["historisch"] = bool(a.get("verkocht_bron")) or (bool(a.get("offline_sinds")) and a["offline_sinds"][:16] == a["eerst_gezien"][:16])
     return boten
 
 
