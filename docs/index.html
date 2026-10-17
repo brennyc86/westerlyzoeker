@@ -6,13 +6,13 @@
 <title>Westerly zoeker</title>
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <style>
-:root{--bg:#f3f6f9;--kaart:#fff;--tekst:#1b2733;--zacht:#5b6b7b;--rand:#d9e0e8;--accent:#0b5fa5;--goed:#1a7f37;--slecht:#c62828;--let:#b26a00;--ster:#e0a800}
-@media(prefers-color-scheme:dark){:root{--bg:#0e161e;--kaart:#17212c;--tekst:#e6edf3;--zacht:#92a1b1;--rand:#293645;--accent:#5aa9ff;--goed:#4cc26b;--slecht:#ff7b72;--let:#e3a008;--ster:#f2c230}}
+:root{color-scheme:dark;--bg:#0f2419;--kaart:#17332a;--tekst:#efe6cf;--zacht:#a9b79f;--rand:#2f4e40;--accent:#d8c48e;--op-accent:#12261b;--goed:#86d494;--slecht:#f2907f;--let:#e8b84f;--ster:#e8c25a}
+a{color:var(--accent)}
 *{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--tekst);font:15px/1.4 system-ui,sans-serif}
 header,main{max-width:1150px;margin:auto;padding:0 16px}header{padding-top:14px}
 h1{margin:0 0 2px;font-size:22px}.sub{color:var(--zacht);font-size:13px}.meta{color:var(--zacht);font-size:13px}
 nav{display:flex;gap:6px;margin:12px 0;flex-wrap:wrap}nav button{border:1px solid var(--rand);background:var(--kaart);color:var(--tekst);padding:7px 14px;border-radius:99px;cursor:pointer;font:inherit}
-nav button.on{background:var(--accent);border-color:var(--accent);color:#fff}
+nav button.on{background:var(--accent);border-color:var(--accent);color:var(--op-accent)}
 .bar{background:var(--kaart);border:1px solid var(--rand);border-radius:10px;padding:10px 12px;display:grid;gap:10px;grid-template-columns:repeat(auto-fit,minmax(160px,1fr));margin-bottom:12px}
 label{display:flex;flex-direction:column;gap:3px;font-size:12px;color:var(--zacht)}label.v{flex-direction:row;align-items:center;gap:6px;font-size:13px;color:var(--tekst)}
 select,input[type=search],input[type=number]{padding:7px;border:1px solid var(--rand);border-radius:6px;background:var(--bg);color:var(--tekst);font:inherit}
@@ -26,7 +26,7 @@ table{border-collapse:collapse;width:100%;font-size:13px}th,td{text-align:left;p
 .titel a{color:inherit;font-weight:600;text-decoration:none}.titel a:hover{text-decoration:underline;color:var(--accent)}
 .prijs{text-align:right;font-weight:700;font-size:19px;white-space:nowrap}.prijs small{display:block;font-weight:400;color:var(--zacht);font-size:11px}
 .badges{display:flex;flex-wrap:wrap;gap:5px;margin-top:5px}.b{font-size:11px;padding:2px 7px;border-radius:99px;border:1px solid var(--rand);white-space:nowrap}
-.b.goed{color:var(--goed);border-color:var(--goed)}.b.slecht{color:var(--slecht);border-color:var(--slecht)}.b.let{color:var(--let);border-color:var(--let)}.b.nw{background:var(--accent);color:#fff;border-color:var(--accent)}
+.b.goed{color:var(--goed);border-color:var(--goed)}.b.slecht{color:var(--slecht);border-color:var(--slecht)}.b.let{color:var(--let);border-color:var(--let)}.b.nw{background:var(--accent);color:var(--op-accent);border-color:var(--accent)}
 .sterren{display:flex;align-items:center;gap:2px;margin-top:6px}.sterren button{background:none;border:0;font-size:22px;cursor:pointer;color:var(--rand);padding:0 1px;line-height:1}.sterren button.on{color:var(--ster)}.sterren .meta{margin-left:8px}
 .knop{background:none;border:0;border-top:1px solid var(--rand);width:100%;padding:7px;color:var(--accent);font:inherit;font-size:13px;cursor:pointer}
 .det{border-top:1px solid var(--rand);padding:10px 12px;display:grid;gap:14px;grid-template-columns:repeat(auto-fit,minmax(260px,1fr));font-size:13px}.det h4{margin:0 0 5px;font-size:13px}.det td:first-child{color:var(--zacht);white-space:nowrap}
@@ -40,6 +40,7 @@ table{border-collapse:collapse;width:100%;font-size:13px}th,td{text-align:left;p
 </head>
 <body>
 <header>
+  <a href="https://brennyc86.github.io/" style="color:var(--zacht);font-size:13px;text-decoration:none">← Start</a>
   <h1>⛵ Westerly zoeker</h1>
   <div class="sub" id="status">Laden…</div>
   <nav id="nav">
@@ -99,7 +100,7 @@ const dt=s=>s?new Date(s).toLocaleDateString("nl-NL",{day:"numeric",month:"short
 const dtt=s=>s?new Date(s).toLocaleString("nl-NL",{day:"numeric",month:"short",hour:"2-digit",minute:"2-digit"}):"?";
 const dagen=(a,b)=>Math.max(0,Math.round((new Date(b)-new Date(a))/864e5));
 const mediaan=a=>{if(!a.length)return null;const s=[...a].sort((x,y)=>x-y),m=s.length>>1;return s.length%2?s[m]:(s[m-1]+s[m])/2};
-const KLEUR=["#0b6bcb","#d1495b","#2e9e57","#e0a800","#8e5bd6","#00a3a3","#e07b39","#6c7a89","#b5338a","#4c9f70"];
+const KLEUR=["#d8c48e","#7fc59a","#e58b6d","#6fb3d9","#c9a0dc","#e8c25a","#9bb86a","#d98fa5","#8fd1c8","#b5a37a"];
 let data=null, ratings={}, tab="over", charts={};
 try{ratings=JSON.parse(localStorage.getItem("ratings")||"{}")}catch(e){}
 const sleutel=b=>b.id;
@@ -142,17 +143,17 @@ function dashboard(){
     ["Actieve veilingen",data.boten.filter(b=>b.veiling&&b.online!==false).length],["Verkocht / offline gehaald (sinds start)",ended.length],["Eerder verkocht / geveild (historie)",historisch.length]].map(([k,v])=>`<div class="kpi"><b>${v==Infinity||v==-Infinity?"–":v}</b><span>${k}</span></div>`).join("");
   const mm=modellen.filter(m=>per[m].length);
   maakGrafiek("c1",{type:"bar",data:{labels:mm,datasets:[{label:"min–max",data:mm.map(m=>[Math.min(...per[m].map(prijs)),Math.max(...per[m].map(prijs))]),backgroundColor:"#0b6bcb88"},
-    {type:"line",label:"mediaan",data:mm.map(m=>mediaan(per[m].map(prijs))),showLine:false,pointStyle:"rectRot",pointRadius:6,backgroundColor:"#d1495b",borderColor:"#d1495b"}]},options:{plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>"€"+v/1000+"k"}}}}});
+    {type:"line",label:"mediaan",data:mm.map(m=>mediaan(per[m].map(prijs))),showLine:false,pointStyle:"rectRot",pointRadius:6,backgroundColor:"#e58b6d",borderColor:"#e58b6d"}]},options:{plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>"€"+v/1000+"k"}}}}});
   const top=mm.sort((a,b)=>per[b].length-per[a].length).slice(0,8);
   maakGrafiek("c2",{type:"scatter",data:{datasets:top.map((m,i)=>({label:m,data:per[m].filter(b=>b.bouwjaar).map(b=>({x:b.bouwjaar,y:prijs(b)})),backgroundColor:KLEUR[i%10]}))},options:{scales:{x:{ticks:{callback:v=>v}},y:{ticks:{callback:v=>"€"+v/1000+"k"}}}}});
   const pft=mm.map(m=>mediaan(per[m].filter(b=>b.lengte_ft).map(b=>prijs(b)/b.lengte_ft)));
-  maakGrafiek("c3",{type:"bar",data:{labels:mm,datasets:[{data:pft,backgroundColor:"#2e9e57"}]},options:{plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>"€"+Math.round(v)}}}}});
+  maakGrafiek("c3",{type:"bar",data:{labels:mm,datasets:[{data:pft,backgroundColor:"#7fc59a"}]},options:{plugins:{legend:{display:false}},scales:{y:{ticks:{callback:v=>"€"+Math.round(v)}}}}});
   maakGrafiek("c4",{type:"scatter",data:{datasets:top.map((m,i)=>({label:m,data:per[m].filter(b=>b.lengte_ft).map(b=>({x:b.lengte_ft,y:prijs(b)})),backgroundColor:KLEUR[i%10]}))},options:{scales:{x:{title:{display:true,text:"voet"}},y:{ticks:{callback:v=>"€"+v/1000+"k"}}}}});
   // aanbod in de tijd
   const ev=[];data.primair.filter(b=>!b.historisch).forEach(b=>{ev.push([b.eerst_gezien,1]);if(b.online===false&&b.offline_sinds)ev.push([b.offline_sinds,-1])});
   ev.sort((a,b)=>a[0]<b[0]?-1:1); let n=0; const pts=ev.map(([d,x])=>({x:new Date(d).getTime(),y:(n+=x)}));
   if(pts.length) pts.push({x:Date.now(),y:n});
-  maakGrafiek("c5",{type:"line",data:{datasets:[{label:"aantal",data:pts,stepped:true,borderColor:"#0b6bcb",fill:false,pointRadius:2}]},options:{plugins:{legend:{display:false}},scales:{x:{type:"linear",ticks:{callback:v=>new Date(v).toLocaleDateString("nl-NL",{day:"numeric",month:"short"})}}}}});
+  maakGrafiek("c5",{type:"line",data:{datasets:[{label:"aantal",data:pts,stepped:true,borderColor:"#d8c48e",fill:false,pointRadius:2}]},options:{plugins:{legend:{display:false}},scales:{x:{type:"linear",ticks:{callback:v=>new Date(v).toLocaleDateString("nl-NL",{day:"numeric",month:"short"})}}}}});
   const looptijd={}; ended.forEach(b=>{if(b.offline_sinds){(looptijd[b.type]=looptijd[b.type]||[]).push(dagen(b.eerst_gezien,b.offline_sinds))}});
   const lt=Object.keys(looptijd);
   maakGrafiek("c6",{type:"bar",data:{labels:lt,datasets:[{data:lt.map(m=>Math.round(looptijd[m].reduce((a,b)=>a+b,0)/looptijd[m].length)),backgroundColor:"#e0a800"}]},options:{plugins:{legend:{display:false}}}});
