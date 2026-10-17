@@ -33,6 +33,7 @@ table{border-collapse:collapse;width:100%;font-size:13px}th,td{text-align:left;p
 .bod{background:var(--bg);border:1px solid var(--let);border-radius:6px;padding:5px 8px;font-size:12px;margin-top:6px}
 .knopje{border:1px solid var(--rand);background:var(--bg);color:var(--tekst);border-radius:6px;padding:6px 12px;cursor:pointer;font:inherit}
 .vk{margin-bottom:12px}.cd{font-variant-numeric:tabular-nums;font-weight:700}
+.oh{margin:22px 0 4px;font-size:18px}.gr{margin:14px 0 4px;font-size:15px;border-bottom:2px solid var(--rand)}table.ov td{vertical-align:middle}table.ov tr.dis{opacity:.5}.dk{border:1px solid var(--rand);background:none;border-radius:6px;cursor:pointer;padding:2px 8px;color:inherit}.detrij td{background:rgba(127,127,127,.08)}table.ov .sterren button{padding:0 1px}
 .sectie{display:none}.sectie.on{display:block}
 @media(max-width:600px){.rij{grid-template-columns:90px 1fr}.foto{width:90px;height:70px}.prijs{grid-column:1/-1;text-align:left}.grid{grid-template-columns:1fr}}
 </style>
@@ -42,7 +43,7 @@ table{border-collapse:collapse;width:100%;font-size:13px}th,td{text-align:left;p
   <h1>⛵ Westerly zoeker</h1>
   <div class="sub" id="status">Laden…</div>
   <nav id="nav">
-    <button data-t="dash" class="on">📊 Dashboard</button><button data-t="boten">⛵ Boten</button><button data-t="veil">🔨 Veilingen</button><button data-t="data">💾 Beoordelingen &amp; data</button>
+    <button data-t="over" class="on">📋 Overzicht</button><button data-t="dash">📊 Dashboard</button><button data-t="boten">⛵ Boten</button><button data-t="veil">🔨 Veilingen</button><button data-t="data">💾 Beoordelingen &amp; data</button>
   </nav>
 </header>
 <main>
@@ -57,7 +58,8 @@ table{border-collapse:collapse;width:100%;font-size:13px}th,td{text-align:left;p
     <label class="v"><input type="checkbox" id="onbek"> toon boten zonder prijs</label>
   </div>
 
-  <section id="s-dash" class="sectie on">
+  <section id="s-over" class="sectie on"><div id="over"></div></section>
+  <section id="s-dash" class="sectie">
     <div class="kpis" id="kpis"></div>
     <div class="grid">
       <div class="box"><h3>Vraagprijs per model (laagste – hoogste, ◆ = mediaan)</h3><canvas id="c1"></canvas></div>
@@ -98,7 +100,7 @@ const dtt=s=>s?new Date(s).toLocaleString("nl-NL",{day:"numeric",month:"short",h
 const dagen=(a,b)=>Math.max(0,Math.round((new Date(b)-new Date(a))/864e5));
 const mediaan=a=>{if(!a.length)return null;const s=[...a].sort((x,y)=>x-y),m=s.length>>1;return s.length%2?s[m]:(s[m-1]+s[m])/2};
 const KLEUR=["#0b6bcb","#d1495b","#2e9e57","#e0a800","#8e5bd6","#00a3a3","#e07b39","#6c7a89","#b5338a","#4c9f70"];
-let data=null, ratings={}, tab="dash", charts={};
+let data=null, ratings={}, tab="over", charts={};
 try{ratings=JSON.parse(localStorage.getItem("ratings")||"{}")}catch(e){}
 const sleutel=b=>b.id;
 const ster=b=>(ratings[sleutel(b)]||{}).k||0;
@@ -112,16 +114,16 @@ function prep(d){
   d.primair=d.boten.filter(b=>!b.zelfde_als||!per[b.zelfde_als]);
 }
 function actief(b){return b.online!==false && !(b._andere&&0)}
-function gefilterd(){
+function gefilterd(negeerStatus){
   const land=$("land").value,mo=$("model").value,st=$("stat").value,q=$("q").value.toLowerCase(),ms=+$("minster").value;
   return data.primair.filter(b=>{
     const online=b.online!==false||b._andere.some(o=>o.online!==false);
     if(land&&b.land!==land&&!b._andere.some(o=>o.land===land)) return false;
     if(mo&&b.type!==mo) return false;
-    if(st==="actief"&&!online) return false; if(st==="weg"&&online) return false;
+    if(!negeerStatus){if(st==="actief"&&!online) return false; if(st==="weg"&&online) return false;}
     if(ms&&ster(b)<ms) return false;
     const kl=$("kiel").value; if(kl){const k=(b.kiel||"").toLowerCase(); if(kl==="onbekend"?k:!k.includes(kl)) return false;}
-    if(!$("onbek").checked&&b.prijs_eur==null&&!(b.biedingen||[]).length&&tab!=="veil") return false;
+    if(!$("onbek").checked&&b.prijs_eur==null&&!(b.biedingen||[]).length&&tab!=="veil"&&tab!=="over") return false;
     if(q&&!(b.titel+" "+b.type+" "+b.plaats+" "+b.tekst+" "+b.land).toLowerCase().includes(q)) return false;
     return true;});
 }
@@ -212,6 +214,59 @@ function bindKaarten(root=document){
     x.insertAdjacentHTML("afterend",historieHTML(data.boten.find(b=>b.id===x.dataset.id)));x.textContent=x.textContent.replace("▾","▴")});
 }
 
+
+// ---------- overzicht: gegroepeerd op lengte, binnen lengte op prijs
+const isOnline=b=>b.online!==false||b._andere.some(o=>o.online!==false);
+function groepeer(l){
+  const g={};l.forEach(b=>{const k=b.lengte_ft?Math.round(b.lengte_ft):0;(g[k]=g[k]||[]).push(b)});
+  return Object.keys(g).map(Number).sort((a,b)=>(a||999)-(b||999)).map(k=>({ft:k,boten:g[k].sort((a,b)=>(prijs(a)??9e9)-(prijs(b)??9e9)||(a.bouwjaar||0)-(b.bouwjaar||0))}));
+}
+function bronnen(b){return [b,...b._andere].map(x=>x.online===false?`<s title="niet meer online">${esc(x.bron)}</s>`:esc(x.bron)).join(", ")}
+function dagenOnline(b){const a=new Date(b.eerst_gezien),e=b.offline_sinds?new Date(b.offline_sinds):new Date();return Math.max(0,Math.round((e-a)/864e5))}
+function rijOver(b,archief){
+  const p=prijs(b),ph=b.prijshistorie||[],v=b.veiling,bd=b.biedingen||[];
+  let pr=p==null?(v?"veiling":"?"):euro(p);
+  if(!archief&&ph.length>1){const d=ph[ph.length-1].p-ph[0].p;if(d)pr+=` <span class="b ${d<0?"goed":"let"}" title="eerste prijs ${euro(ph[0].p)}">${d<0?"▼":"▲"}</span>`}
+  if(archief&&ph.length>1)pr+=`<br><small class="meta">eerst ${euro(ph[0].p)}</small>`;
+  const bod=v?`${euro(v.huidig_bod)} <small class="meta">(${v.bieden_aantal??bd.length} bod)</small>`:(bd.length?euro(Math.max(...bd.map(x=>x.bedrag))):"");
+  let link=`<a href="${esc(b.url)}" target="_blank" rel="noopener">${esc(b.titel)}</a>`;
+  if(archief)link+=` <a class="meta" title="Bewaarde kopie van de advertentie (als die bestaat)" href="https://web.archive.org/web/*/${esc(b.url)}" target="_blank" rel="noopener">[archief]</a>`;
+  const kol=archief
+    ?`<td>${b.eerst_gezien?dtt(b.eerst_gezien).split(",")[0]:"?"}${b.offline_sinds?" → "+dtt(b.offline_sinds).split(",")[0]:""}<br><small class="meta">${dagenOnline(b)} dagen${b.historisch?" (al weg bij 1e check)":""}</small></td><td>${esc(b.status)}</td>`
+    :(v?`<td><b class="cd" data-einde="${esc(v.einde||"")}">${dtt(v.einde)}</b></td><td>${bod}</td>`:`<td>${b.eerst_gezien?dtt(b.eerst_gezien).split(",")[0]:""}</td>`);
+  return `<tr class="${ratings[b.id]&&ratings[b.id].k===1?"dis":""}"><td>${link}<div class="meta">${esc(b.type)}${b.kiel?" · "+esc(b.kiel):""}${b.mast_hoogte_m?" · mast "+b.mast_hoogte_m+" m":""}${b.diepgang_m?" · diepgang "+b.diepgang_m+" m":""}</div></td>
+    <td>${b.bouwjaar||""}</td><td>${esc([b.plaats,b.land].filter(Boolean).join(", "))}</td><td><b>${pr}</b></td>${kol}<td>${bronnen(b)}</td>
+    <td>${sterren(b)}</td><td><button class="dk" data-id="${esc(b.id)}" title="prijzen, biedingen, looptijd">▾</button></td></tr>`;
+}
+function tabelOver(l,archief,veil){
+  if(!l.length)return '<p class="meta">Geen boten met deze filters.</p>';
+  const kop=archief?"<th>Te koop van → tot</th><th>Status</th>":(veil?"<th>Einde</th><th>Huidig bod</th>":"<th>Eerst gezien</th>");
+  return groepeer(l).map(g=>{
+    const ps=g.boten.map(prijs).filter(x=>x!=null);
+    return `<h3 class="gr">${g.ft?g.ft+" voet":"Lengte onbekend"} <span class="meta">· ${g.boten.length} boot${g.boten.length>1?"en":""}${ps.length?" · "+euro(Math.min(...ps))+(Math.max(...ps)>Math.min(...ps)?" – "+euro(Math.max(...ps)):""):""}</span></h3>
+    <div class="tw"><table class="ov"><tr><th>Boot</th><th>Jaar</th><th>Plaats</th><th>Prijs</th>${kop}<th>Site</th><th>Beoordeling</th><th></th></tr>${g.boten.map(b=>rijOver(b,archief)).join("")}</table></div>`}).join("");
+}
+function overzicht(){
+  const l=gefilterd(true),aan=l.filter(isOnline),weg=l.filter(b=>!isOnline(b));
+  const koop=aan.filter(b=>!b.veiling),veil=aan.filter(b=>b.veiling).sort((a,b)=>(a.veiling.einde||"")<(b.veiling.einde||"")?-1:1);
+  let vh="";
+  if(veil.length)vh=`<div class="tw"><table class="ov"><tr><th>Veiling</th><th>Jaar</th><th>Plaats</th><th>Vraag</th><th>Einde</th><th>Huidig bod</th><th>Site</th><th>Beoordeling</th><th></th></tr>${veil.map(b=>rijOver(b,false)).join("")}</table></div>`;
+  $("tel").textContent=(koop.length+veil.length)+" nu actief";
+  $("over").innerHTML=`<h2 class="oh">Nu te koop <span class="meta">(${koop.length}) — per lengte, binnen de lengte van laag naar hoog</span></h2>${tabelOver(koop,false,false)}
+  <h2 class="oh">🔨 Op veiling <span class="meta">(${veil.length}) — eerst eindigende bovenaan</span></h2>${vh||'<p class="meta">Nu geen Westerly op veiling.</p>'}
+  <h2 class="oh">🗄 Archief: verkocht / offline <span class="meta">(${weg.length}) — links werken na verkoop vaak niet meer; [archief] zoekt een bewaarde kopie op archive.org</span></h2>${tabelOver(weg,true,false)}`;
+  $("over").querySelectorAll(".sterren button").forEach(x=>x.onclick=()=>{
+    const id=x.parentNode.dataset.id,k=+x.dataset.k,huidig=(ratings[id]||{}).k||0;
+    if(huidig===k){ratings[id]={...ratings[id],k:0,d:new Date().toISOString()}}
+    else{const n=prompt("Beoordeling "+k+"/5 — notitie (optioneel):",(ratings[id]||{}).n||"");if(n===null)return;
+      ratings[id]={k,n:n.trim(),d:new Date().toISOString(),t:(data.boten.find(b=>b.id===id)||{}).titel}}
+    bewaar();render()});
+  $("over").querySelectorAll(".dk").forEach(x=>x.onclick=()=>{
+    const tr=x.closest("tr"),nx=tr.nextElementSibling;
+    if(nx&&nx.classList.contains("detrij")){nx.remove();x.textContent="▾";return}
+    tr.insertAdjacentHTML("afterend",`<tr class="detrij"><td colspan="11">${historieHTML(data.boten.find(b=>b.id===x.dataset.id))}</td></tr>`);x.textContent="▴"});
+}
+
 // ---------- veilingen
 function veilingen(){
   const l=data.primair.filter(b=>b.veiling).sort((a,b)=>(a.veiling.einde||"")<(b.veiling.einde||"")?-1:1), nu=Date.now();
@@ -244,7 +299,7 @@ function bewaarInst(){try{localStorage.setItem("inst",JSON.stringify(instellinge
 function laadInst(o){if(!o)return;INST.forEach(i=>{if(o[i]!==undefined)$(i).value=o[i]});if(o.onbek!==undefined)$("onbek").checked=o.onbek;if(o.tab)zetTab(o.tab,false)}
 function zetTab(t,render_=true){tab=t;document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("on",b.dataset.t===t));
   document.querySelectorAll(".sectie").forEach(s=>s.classList.toggle("on",s.id==="s-"+t));document.querySelector(".bar").style.display=t==="data"?"none":"";if(render_)render()}
-function render(){if(!data)return;bewaarInst();if(tab==="dash")dashboard();else if(tab==="boten")lijst();else if(tab==="veil")veilingen()}
+function render(){if(!data)return;bewaarInst();if(tab==="over")overzicht();else if(tab==="dash")dashboard();else if(tab==="boten")lijst();else if(tab==="veil")veilingen()}
 
 fetch("data/boten.json?"+Date.now()).then(r=>r.json()).then(d=>{
   data=d;prep(d);
@@ -263,7 +318,7 @@ fetch("data/boten.json?"+Date.now()).then(r=>r.json()).then(d=>{
   render();
 }).catch(e=>{$("status").textContent="Kon data niet laden: "+e});
 // vernieuw data elke minuut op de veilingtab
-setInterval(()=>{if(tab!=="veil"||!data)return;fetch("data/boten.json?"+Date.now()).then(r=>r.json()).then(d=>{data=d;prep(d);veilingen()}).catch(()=>{})},60000);
+setInterval(()=>{if((tab!=="veil"&&tab!=="over")||!data)return;fetch("data/boten.json?"+Date.now()).then(r=>r.json()).then(d=>{data=d;prep(d);render()}).catch(()=>{})},60000);
 </script>
 </body>
 </html>
