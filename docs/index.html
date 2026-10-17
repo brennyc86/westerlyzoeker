@@ -49,13 +49,13 @@ table{border-collapse:collapse;width:100%;font-size:13px}th,td{text-align:left;p
 </header>
 <main>
   <div class="bar">
-    <label>Land<select id="land"><option value="NL">Nederland</option><option value="">Alle landen</option></select></label>
+    <label>Land<select id="land"><option value="">Alle landen</option><option value="NL">Alleen Nederland</option></select></label>
     <label>Model<select id="model"><option value="">Alle modellen</option></select></label>
     <label>Status<select id="stat"><option value="actief">Nu te koop / op veiling</option><option value="alle">Alles (incl. verkocht/offline)</option><option value="weg">Alleen verkocht/offline</option></select></label>
     <label>Zoek<input type="search" id="q" placeholder="model, plaats, tekst…"></label>
     <label>Min. beoordeling<select id="minster"><option value="0">alle</option><option value="1">★ 1+</option><option value="2">★ 2+</option><option value="3">★ 3+</option><option value="4">★ 4+</option><option value="5">★ 5</option></select></label>
     <label>Kieltype<select id="kiel"><option value="">alle</option><option value="vinkiel">vinkiel</option><option value="kimkiel">kimkiel / bilgekiel</option><option value="lange kiel">lange kiel</option><option value="zwaard">zwaard / hefkiel</option><option value="onbekend">onbekend</option></select></label>
-    <label>Sorteer<select id="sort"><option value="prijs">Prijs ↑</option><option value="prijsd">Prijs ↓</option><option value="nieuw">Nieuwst</option><option value="jaar">Bouwjaar nieuw → oud</option><option value="ft">Lengte (voet)</option><option value="ster">Beoordeling</option></select></label>
+    <label>Sorteer<select id="sort"><option value="ftprijs">Lengte ↑, dan prijs ↑</option><option value="prijs">Prijs ↑</option><option value="prijsd">Prijs ↓</option><option value="nieuw">Nieuwst</option><option value="jaar">Bouwjaar nieuw → oud</option><option value="ft">Lengte (voet)</option><option value="ster">Beoordeling</option></select></label>
     <label class="v"><input type="checkbox" id="onbek"> toon boten zonder prijs</label>
   </div>
 
@@ -197,9 +197,9 @@ function kaart(b){
 }
 function lijst(){
   let l=gefilterd(),so=$("sort").value;
-  l.sort((a,b)=>so==="prijs"?(prijs(a)??9e9)-(prijs(b)??9e9):so==="prijsd"?(prijs(b)??-1)-(prijs(a)??-1):so==="nieuw"?(b.eerst_gezien>a.eerst_gezien?1:-1):so==="jaar"?(b.bouwjaar||0)-(a.bouwjaar||0):so==="ft"?(b.lengte_ft||0)-(a.lengte_ft||0):ster(b)-ster(a));
+  l.sort((a,b)=>so==="ftprijs"?((a.lengte_ft?Math.round(a.lengte_ft):999)-(b.lengte_ft?Math.round(b.lengte_ft):999))||((prijs(a)??9e9)-(prijs(b)??9e9)):so==="prijs"?(prijs(a)??9e9)-(prijs(b)??9e9):so==="prijsd"?(prijs(b)??-1)-(prijs(a)??-1):so==="nieuw"?(b.eerst_gezien>a.eerst_gezien?1:-1):so==="jaar"?(b.bouwjaar||0)-(a.bouwjaar||0):so==="ft"?(b.lengte_ft||0)-(a.lengte_ft||0):ster(b)-ster(a));
   $("tel").textContent=l.length+" boten";
-  $("lijst").innerHTML=l.map(kaart).join("")||'<p class="meta">Niets gevonden met deze filters.</p>';
+  let vg=null;$("lijst").innerHTML=l.map(b=>{let k="";if(so==="ftprijs"){const f=b.lengte_ft?Math.round(b.lengte_ft):0;if(f!==vg){vg=f;k=`<h3 class="gr">${f?f+" voet":"Lengte onbekend"}</h3>`}}return k+kaart(b)}).join("")||'<p class="meta">Niets gevonden met deze filters.</p>';
   bindKaarten();
 }
 function bindKaarten(root=document){
@@ -296,7 +296,7 @@ const u64=s=>btoa(String.fromCharCode(...new TextEncoder().encode(s))).replace(/
 const u64d=s=>new TextDecoder().decode(Uint8Array.from(atob(s.replace(/-/g,"+").replace(/_/g,"/")),c=>c.charCodeAt(0)));
 const INST=["land","model","stat","q","minster","sort","kiel"];
 function instellingen(){const o={};INST.forEach(i=>o[i]=$(i).value);o.onbek=$("onbek").checked;o.tab=tab;return o}
-function bewaarInst(){try{localStorage.setItem("inst",JSON.stringify(instellingen()))}catch(e){}}
+function bewaarInst(){try{localStorage.setItem("inst2",JSON.stringify(instellingen()))}catch(e){}}
 function laadInst(o){if(!o)return;INST.forEach(i=>{if(o[i]!==undefined)$(i).value=o[i]});if(o.onbek!==undefined)$("onbek").checked=o.onbek;if(o.tab)zetTab(o.tab,false)}
 function zetTab(t,render_=true){tab=t;document.querySelectorAll("nav button").forEach(b=>b.classList.toggle("on",b.dataset.t===t));
   document.querySelectorAll(".sectie").forEach(s=>s.classList.toggle("on",s.id==="s-"+t));document.querySelector(".bar").style.display=t==="data"?"none":"";if(render_)render()}
@@ -309,7 +309,7 @@ fetch("data/boten.json?"+Date.now()).then(r=>r.json()).then(d=>{
   $("status").textContent="Laatst bijgewerkt: "+new Date(d.bijgewerkt).toLocaleString("nl-NL",{dateStyle:"medium",timeStyle:"short"})+" · "+bron+" · ververst elk uur (veilingen vlak voor het einde elke 45 seconden)";
   const m=location.hash.match(/^#s=(.+)$/);
   if(m){try{const o=JSON.parse(u64d(m[1]));for(const id in o.r||{}){const l=ratings[id];if(!l||(o.r[id].d||"")>(l.d||""))ratings[id]=o.r[id]}bewaar();laadInst(o.i);history.replaceState(null,"",location.pathname);$("status").textContent="✓ beoordelingen en instellingen overgenomen. "+$("status").textContent}catch(e){}}
-  try{if(!m)laadInst(JSON.parse(localStorage.getItem("inst")||"null"))}catch(e){}
+  try{if(!m)laadInst(JSON.parse(localStorage.getItem("inst2")||"null"))}catch(e){}
   document.querySelectorAll(".bar input,.bar select").forEach(e=>e.addEventListener("input",render));
   document.querySelectorAll("nav button").forEach(b=>b.onclick=()=>zetTab(b.dataset.t));
   $("exjson").onclick=()=>download("westerly-beoordelingen.json",exportJSON(),"application/json");

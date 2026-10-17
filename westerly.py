@@ -333,7 +333,7 @@ def devalk():
             lig = re.search(r"Ligplaats bij (.{3,50}?)(?: Brandstof| Motor| Prijs| Vraagprijs|$)", seg)
             img = re.search(r'property="og:image" content="([^"]+)"', dh)
             r = maak("devalk", u[1], u[0], titel, seg, getal(pr.group(1)) if pr and not verkocht else None, "EUR",
-                     int(jr.group(1)) if jr else None, float(af.group(1)) if af else None, "", lig.group(1) if lig else "",
+                     int(jr.group(1)) if jr else None, float(af.group(1)) if af else None, "NL", lig.group(1) if lig else "",
                      img.group(1) if img else "", verkocht_bron=verkocht)
             extraheer(r, t if not verkocht else t[t.rfind(titel + " Afmetingen"):])
             uit.append(r)
